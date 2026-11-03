@@ -15,6 +15,7 @@ import {
   withdrawCommitmentAction,
 } from "@/app/actions";
 import { fmtDateTime } from "@/lib/format";
+import { safeHref } from "@/lib/safe-url";
 import type { RequirementEvaluation } from "@/lib/readiness/types";
 import type { Room, RoomAssignment, RoomRequirement } from "@/lib/services/room";
 import { Pill, StatusPill, TierBadge } from "../status";
@@ -57,7 +58,7 @@ export function RequirementCard({
   const deps = req.dependsOn.map((d) => room.requirements.find((r) => r.id === d)?.title).filter(Boolean);
 
   return (
-    <Card as="article" className="p-4 sm:p-5">
+    <Card as="article" className="scroll-mt-20 p-4 sm:p-5" id={`req-${req.id}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -305,13 +306,13 @@ function RecheckButton({ requirementId }: { requirementId: string }) {
 
 function EvidenceList({ req }: { req: RoomRequirement }) {
   return (
-    <details className="mt-4 text-sm" open={req.kind === "url_check"}>
+    <details className="mt-4 text-sm" open>
       <summary className="cursor-pointer text-ink-2">Evidence history ({req.evidence.length})</summary>
       <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
         {[...req.evidence].reverse().map((e) => (
           <li key={e.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2">
             <span className="min-w-0 break-all">
-              {e.kind === "url" ? <a className="underline underline-offset-2" href={e.value} target="_blank" rel="noreferrer noopener">{e.value}</a> : e.value}
+              {e.kind === "url" && safeHref(e.value) ? <a className="underline underline-offset-2" href={safeHref(e.value)} target="_blank" rel="noreferrer noopener">{e.value}</a> : e.value}
             </span>
             <span className="flex min-w-0 flex-wrap items-center gap-2 text-[12px] text-ink-3">
               {e.submittedByName} · {fmtDateTime(e.submittedAt)}
