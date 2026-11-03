@@ -90,7 +90,7 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="rounded-2xl border border-dashed border-line-strong px-6 py-10 text-center">
-      <p className="font-display text-xl text-ink">{title}</p>
+      <h2 className="font-display text-xl text-ink">{title}</h2>
       {children ? <p className="mx-auto mt-2 max-w-md text-[15px] text-ink-2">{children}</p> : null}
       {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
     </div>
