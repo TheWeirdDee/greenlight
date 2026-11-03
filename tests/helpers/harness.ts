@@ -47,6 +47,7 @@ const freePort = () =>
 
 interface Server {
   url: (database: string) => string;
+  appUrl: (database: string) => string;
   admin: postgres.Sql;
   stop: () => Promise<void>;
 }
@@ -74,18 +75,32 @@ function boot(): Promise<Server> {
     await admin.unsafe("create database template_gl");
     const tpl = postgres(url("template_gl"), { max: 1, onnotice: () => {} });
     await tpl.unsafe(BOOTSTRAP);
+    // The same two steps scripts/migrate.mjs performs on Supabase: bootstrap (role + schema), then migrations.
+    await tpl.unsafe(readFileSync(join(process.cwd(), "supabase", "bootstrap.sql"), "utf8"));
     const dir = join(process.cwd(), "supabase", "migrations");
     for (const f of readdirSync(dir).filter((n) => n.endsWith(".sql")).sort()) {
-      await tpl.unsafe(readFileSync(join(dir, f), "utf8"));
+      // One transaction per migration, as scripts/migrate.mjs does (the SQL uses SET LOCAL ROLE).
+      await tpl.begin(async (tx) => {
+        await tx.unsafe(readFileSync(join(dir, f), "utf8"));
+      });
     }
     await tpl.end(); // a template database must have no open sessions
+    // Role attributes are cluster-wide: let greenlight_app log in, as it does in production.
+    await admin.unsafe("alter role greenlight_app login password 'test'");
 
     return {
       url,
+      appUrl: (database: string) => `postgres://greenlight_app:test@127.0.0.1:${port}/${database}`,
       admin,
       stop: async () => {
         await admin.end();
-        await pg.stop();
+        try {
+          await pg.stop();
+        } catch (e) {
+          // On Windows the server may still hold its data directory while it is being removed (EBUSY/EPERM).
+          // The process is stopped either way; leftover temp files must not fail an otherwise green run.
+          if (!/EBUSY|EPERM|ENOTEMPTY/.test(String(e))) throw e;
+        }
       },
     };
   })();
@@ -123,8 +138,10 @@ export async function freshDb() {
   await s.admin.unsafe(`create database "${name}" template template_gl`);
 
   process.env.DATABASE_POOL_MAX = "6";
-  const db = createPostgresDb(s.url(name));
+  // The application connects as the dedicated, least-privileged role — never as an administrator.
+  const db = createPostgresDb(s.appUrl(name));
   const raw = postgres(s.url(name), { max: 1, prepare: false, onnotice: () => {} });
+  await raw.unsafe("set search_path = greenlight"); // assertions read Greenlight tables unqualified
   const pg: RawDb = {
     async query<T extends object = Row>(text: string, params: unknown[] = []) {
       const r = await raw.unsafe(text, params as never);
