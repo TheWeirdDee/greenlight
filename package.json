@@ -12,7 +12,12 @@
     "test:live": "node -e \"process.env.LIVE_CHAIN=1;require('child_process').spawnSync('npx',['vitest','run','lib/chain/verifier.live.test.ts'],{stdio:'inherit',shell:true,env:process.env})\"",
     "test:e2e": "playwright test",
     "e2e:stack": "node e2e/support/stack.mjs",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:audit": "node scripts/audit.mjs",
+    "env:init": "node scripts/env.mjs init",
+    "env:compose": "node scripts/env.mjs compose",
+    "env:status": "node scripts/env.mjs status",
+    "db:rehearse": "node e2e/support/shared-project.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
