@@ -15,6 +15,14 @@ const kinds = [
   { value: "funding", label: "Funding — USDC must arrive on Base Sepolia", hint: "Credited only from transfers Greenlight verifies on-chain." },
 ] as const;
 
+const presets = [
+  { label: "Announcement is scheduled", kind: "commitment", title: "Announcement is scheduled" },
+  { label: "Partner confirms their slot", kind: "commitment", title: "Partner confirms their promotion slot" },
+  { label: "Campaign budget funded", kind: "funding", title: "Campaign budget is funded" },
+  { label: "Website is live", kind: "url_check", title: "Website is publicly reachable" },
+  { label: "Press kit delivered", kind: "deliverable", title: "Press kit is delivered" },
+] as const;
+
 export function AddRequirement({ launchId, existing }: { launchId: string; existing: RoomRequirement[] }) {
   const { act, pending, error } = useAct();
   const [open, setOpen] = useState(existing.length === 0);
@@ -37,7 +45,7 @@ export function AddRequirement({ launchId, existing }: { launchId: string; exist
   };
 
   return (
-    <Card className="p-5 sm:p-6">
+    <Card className="scroll-mt-20 p-5 sm:p-6" id="requirements">
       <div className="flex items-center justify-between gap-3">
         <div>
           <Eyebrow>Requirements</Eyebrow>
@@ -47,6 +55,26 @@ export function AddRequirement({ launchId, existing }: { launchId: string; exist
           {open ? "Close" : "Add requirement"}
         </Button>
       </div>
+      {open && existing.length === 0 ? (
+        <div className="mt-4">
+          <p className="text-sm text-ink-2">Start from what usually decides a launch — tap one to prefill, then adjust:</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {presets.map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => {
+                  setKind(p.kind);
+                  setTitle(p.title);
+                }}
+                className="rounded-full border border-line-strong bg-paper px-3 py-1.5 text-sm text-ink-2 transition-colors hover:bg-sunken hover:text-ink"
+              >
+                + {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {open ? (
         <form
           className="mt-5 space-y-4"
