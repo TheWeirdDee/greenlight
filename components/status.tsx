@@ -50,7 +50,7 @@ function Glyph({ tone }: { tone: Tone }) {
 
 export function Pill({ tone, children }: { tone: Tone; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-semibold tracking-wide ${toneClass[tone]}`}>
+    <span className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold tracking-wide ${toneClass[tone]}`}>
       <Glyph tone={tone} />
       {children}
     </span>
