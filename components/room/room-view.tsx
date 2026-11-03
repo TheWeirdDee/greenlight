@@ -21,13 +21,25 @@ export function RoomView({ room }: { room: Room }) {
   return (
     <div className="space-y-6">
       <Hero room={room} deadlines={deadlines} />
+      <nav aria-label="Jump to a section" className="-mt-2 flex flex-wrap gap-2 lg:hidden">
+        {[
+          ["#blockers", "Blockers"],
+          ["#requirement-list", "Requirements"],
+          ...(room.isOwner ? [["#decision", "Decision"]] : []),
+          ["#activity", "Activity"],
+        ].map(([href, label]) => (
+          <a key={href} href={href} className="rounded-full border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-2 hover:bg-sunken hover:text-ink">
+            {label}
+          </a>
+        ))}
+      </nav>
       {issued ? <InviteBanner invite={issued} launchName={room.launch.name} onDismiss={() => setIssued(null)} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-6">
           <BlockerList room={room} onIssued={setIssued} />
           {room.isOwner && !frozen ? <AddRequirement launchId={room.launch.id} existing={room.requirements} /> : null}
-          <section aria-label="Requirements" className="space-y-4">
+          <section aria-label="Requirements" id="requirement-list" className="scroll-mt-20 space-y-4">
             {room.requirements.length === 0 ? (
               <EmptyState title="No requirements yet">
                 {room.isOwner ? "Add the conditions that must be true before you launch: commitments, deliverables, site checks and funding." : "The founder hasn't added requirements yet."}
