@@ -15,7 +15,7 @@ const dot = {
 
 export function Activity({ room }: { room: Room }) {
   return (
-    <Card className="p-5 sm:p-6">
+    <Card className="scroll-mt-20 p-5 sm:p-6" id="activity">
       <Eyebrow>Activity</Eyebrow>
       <h2 className="mt-1 font-display text-2xl">Every change, with who and when</h2>
       <ol className="mt-4 space-y-0">
