@@ -1,13 +1,23 @@
 -- GREENLIGHT core schema.
 --
--- Access model: the Next.js server connects with a privileged Postgres role and performs
--- every write after verifying the caller's Supabase session. Row Level Security is enabled
--- on every table; the only policies grant *read* access to people who may see a launch, so
--- Supabase Realtime can push change notifications to the browser. There are no write
--- policies: browsers cannot modify data directly.
+-- ISOLATION. Greenlight shares a Supabase project (and therefore Supabase Auth) with other
+-- applications, so it never touches `public`. Everything lives in the `greenlight` schema, owned
+-- by the dedicated `greenlight_app` role (both created by supabase/bootstrap.sql). The migration
+-- creates objects *as* that role, so nothing here is owned by, or granted to, another application.
+-- There is deliberately no foreign key into `auth.users`: that would require a privilege on the
+-- shared auth schema, and profile rows are only ever created for a signature-verified session.
+--
+-- Access model: the Next.js server connects as `greenlight_app` (the table owner, so RLS does not
+-- apply to it) and performs every write after verifying the caller's Supabase session. Row Level
+-- Security is enabled on every table; the only policies grant *read* access to people who may see
+-- a launch, so Supabase Realtime can push change notifications to the browser. There are no write
+-- policies and no write grants: browsers cannot modify data directly.
+
+set local role greenlight_app;
+set local search_path = greenlight;
 
 create table profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
+  id uuid primary key,
   display_name text not null check (char_length(display_name) between 1 and 80),
   email text,
   created_at timestamptz not null default now()
@@ -183,26 +193,48 @@ alter table funding_transactions enable row level security;
 alter table events enable row level security;
 
 -- A person may read a launch if they own its workspace or hold a live assignment on it.
-create function gl_can_read_launch(p_launch uuid) returns boolean
-  language sql stable security definer set search_path = public as $$
+-- The caller's id is passed in (policies evaluate auth.uid() as the querying role), so this
+-- SECURITY DEFINER function needs no access to the shared `auth` schema.
+create function gl_can_read_launch(p_launch uuid, p_user uuid) returns boolean
+  language sql stable security definer set search_path = greenlight as $$
   select exists (
     select 1 from launches l
     join workspace_members m on m.workspace_id = l.workspace_id
-    where l.id = p_launch and m.user_id = auth.uid() and m.role = 'owner'
+    where l.id = p_launch and m.user_id = p_user and m.role = 'owner'
   ) or exists (
     select 1 from assignments a
-    where a.launch_id = p_launch and a.user_id = auth.uid() and a.state <> 'released'
+    where a.launch_id = p_launch and a.user_id = p_user and a.state <> 'released'
   )
 $$;
+revoke all on function gl_can_read_launch(uuid, uuid) from public;
+grant execute on function gl_can_read_launch(uuid, uuid) to authenticated;
 
-create policy profiles_self_read on profiles for select to authenticated using (id = auth.uid());
-create policy launches_read on launches for select to authenticated using (gl_can_read_launch(id));
-create policy events_read on events for select to authenticated using (gl_can_read_launch(launch_id));
+-- The only browser-facing privileges: read access to the rows the policies below expose (Realtime
+-- needs SELECT). No INSERT/UPDATE/DELETE is granted to any browser role, and the schema is not
+-- exposed to PostgREST, so there is no REST path to this data at all.
+grant usage on schema greenlight to authenticated;
+grant select on profiles, launches, events to authenticated;
 
--- Publish change notifications for Supabase Realtime (guarded so the migration also runs on plain Postgres).
+reset role;
+
+-- Policies are created as the administrator, not as greenlight_app: a policy that mentions
+-- auth.uid() is resolved with the creator's privileges, and greenlight_app deliberately has no
+-- access to the shared `auth` schema. (The administrator is a member of greenlight_app, so it may
+-- manage these tables.) At query time the policy runs as the calling role, which does have access.
+create policy profiles_self_read on greenlight.profiles for select to authenticated using (id = auth.uid());
+create policy launches_read on greenlight.launches for select to authenticated using (greenlight.gl_can_read_launch(id, auth.uid()));
+create policy events_read on greenlight.events for select to authenticated using (greenlight.gl_can_read_launch(launch_id, auth.uid()));
+
+-- Realtime: purely additive, scoped to Greenlight's own two tables. A failure here must not block the
+-- migration — the app falls back to polling — but it is surfaced as a warning.
 do $$
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    alter publication supabase_realtime add table public.events, public.launches;
+    begin
+      alter publication supabase_realtime add table greenlight.events, greenlight.launches;
+    exception
+      when duplicate_object then null;
+      when others then raise warning 'Could not add Greenlight tables to supabase_realtime (%). Realtime pushes are disabled; the app will poll.', sqlerrm;
+    end;
   end if;
 end $$;
