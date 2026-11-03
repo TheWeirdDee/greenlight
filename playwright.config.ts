@@ -19,7 +19,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: /mobile\.spec\.ts/ },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: /(mobile|real)\.spec\.ts/ },
     { name: "mobile", use: { ...devices["Pixel 5"] }, testMatch: /(public|mobile)\.spec\.ts/ },
+    // Real Supabase / deployed environment: run explicitly with --project=real (see e2e/real.spec.ts).
+    { name: "real", use: { ...devices["Desktop Chrome"] }, testMatch: /real\.spec\.ts/ },
   ],
 });
