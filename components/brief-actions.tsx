@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createShareAction, revokeShareAction } from "@/app/actions";
 import { Button, Card, ErrorNote } from "./ui";
 import { useAct } from "./use-act";
@@ -8,7 +8,12 @@ import { useAct } from "./use-act";
 export function BriefActions({ launchId, shareToken }: { launchId: string; shareToken: string | null }) {
   const { act, pending, error } = useAct();
   const [copied, setCopied] = useState(false);
-  const url = shareToken ? `${typeof window === "undefined" ? "" : window.location.origin}/brief/${shareToken}` : null;
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- origin is only known in the browser; keeps SSR and first client render identical
+    setOrigin(window.location.origin);
+  }, []);
+  const url = shareToken ? `${origin}/brief/${shareToken}` : null;
 
   return (
     <Card className="mx-auto mb-10 max-w-3xl p-5 print:hidden">
