@@ -9,7 +9,6 @@ const RUN = Date.now().toString(36);
 const PASSWORD = "correct-horse-battery";
 const headline = (p: Page) => p.locator("h2[aria-live=polite]");
 const card = (p: Page, title: string): Locator => p.getByRole("article").filter({ has: p.getByRole("heading", { name: title }) });
-const local = (min: number) => new Date(Date.now() + min * 60_000).toISOString().slice(0, 16);
 
 async function session(browser: Browser, name: string) {
   const context = await browser.newContext({ timezoneId: "UTC", viewport: { width: 1280, height: 900 } });
