@@ -104,7 +104,7 @@ export async function runUrlCheck(ctx: Ctx, evidenceId: string) {
         evidenceId,
         result.ok ? "verified" : "failed",
         now,
-        JSON.stringify({ summary: result.summary, status: result.status, finalUrl: result.finalUrl }),
+        { summary: result.summary, status: result.status, finalUrl: result.finalUrl },
       ],
     );
     if (updated.length === 0) throw conflict("This check has already been recorded");
