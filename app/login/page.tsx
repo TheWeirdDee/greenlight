@@ -9,8 +9,8 @@ import { safeNext } from "@/lib/safe-next";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; mode?: string }> }) {
-  const { next, mode } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; mode?: string; error?: string }> }) {
+  const { next, mode, error } = await searchParams;
   const user = await getSessionUser();
   if (user) redirect(safeNext(next));
 
@@ -22,6 +22,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <ThemeToggle />
         </div>
         <main id="main" className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-12">
+          {error === "confirmation" ? (
+            <p role="alert" className="mb-6 rounded-lg border border-block/30 bg-block-bg px-3 py-2 text-sm text-block">
+              That confirmation link is invalid or has expired. Sign in if you already confirmed, or create the account again to get a new link.
+            </p>
+          ) : null}
           {!isSupabaseConfigured() ? (
             <p role="alert" className="mb-6 rounded-lg border border-wait/40 bg-wait-bg px-3 py-2 text-sm text-wait">
               This deployment has no Supabase project configured yet, so sign-in is unavailable.
