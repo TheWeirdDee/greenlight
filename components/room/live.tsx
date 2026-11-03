@@ -29,7 +29,7 @@ export function LiveRefresh({ launchId, deadlines, pollMs = 20_000 }: { launchId
     try {
       channel = supabase
         .channel(`launch:${launchId}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "events", filter: `launch_id=eq.${launchId}` }, refresh)
+        .on("postgres_changes", { event: "INSERT", schema: "greenlight", table: "events", filter: `launch_id=eq.${launchId}` }, refresh)
         .subscribe((status: string) => setConnected(status === "SUBSCRIBED"));
     } catch {
       /* realtime unavailable: polling still keeps the room current */
