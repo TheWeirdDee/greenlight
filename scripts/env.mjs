@@ -65,6 +65,10 @@ CRON_SECRET=${secret()}
     console.error("MIGRATION_DATABASE_URL is not a valid URL. Paste the full postgresql://… string (URL-encode special characters in the password).");
     process.exit(1);
   }
+  if (!env.MIGRATION_DATABASE_URL.replace(/^postgres(ql)?:\/\//, "").split("@")[0].includes(":")) {
+    console.error("MIGRATION_DATABASE_URL has no ':' between the username and password (expected postgresql://user:PASSWORD@host:port/db).");
+    process.exit(1);
+  }
   // Pooler usernames are `role.<project-ref>`; direct ones are just `role`.
   const ref = u.username.includes(".") ? u.username.split(".").slice(1).join(".") : "";
   u.username = ref ? `greenlight_app.${ref}` : "greenlight_app";
