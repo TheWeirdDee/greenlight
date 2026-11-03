@@ -1,5 +1,6 @@
 import { isAddress } from "viem";
 import { z } from "zod";
+import { isHttpUrl } from "@/lib/safe-url";
 import { BASE_SEPOLIA_CHAIN_ID, FUNDING_TOKEN_ALLOWLIST } from "@/lib/chain/config";
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -63,7 +64,10 @@ export const inviteInput = z.object({
 });
 
 export const evidenceInput = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("url"), value: z.string().trim().url().max(2000) }),
+  z.object({
+    kind: z.literal("url"),
+    value: z.string().trim().url().max(2000).refine(isHttpUrl, "Only http:// and https:// links are accepted"),
+  }),
   z.object({ kind: z.literal("note"), value: text(2000) }),
 ]);
 
