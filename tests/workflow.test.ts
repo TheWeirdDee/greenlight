@@ -138,6 +138,35 @@ describe("launch room: the happy path", () => {
     expect((await room(sc)).readiness.fingerprint).toBe(row.readiness_result.fingerprint);
   });
 
+  it("stores payloads and readiness as real JSON objects (not double-encoded strings) and queries them by key", async () => {
+    const sc = await scenario();
+    const promo = await addReq(sc, { title: "Announce", kind: "commitment" });
+    const inv = await invite(sc, promo, "Ada");
+    await accept(sc, sc.ada, inv.token);
+    const types = (await sc.pg.query<{ t: string }>(`select distinct jsonb_typeof(payload) as t from events`)).rows;
+    expect(types).toEqual([{ t: "object" }]);
+    const added = (await sc.pg.query<{ title: string }>(`select payload->>'title' as title from events where type = 'requirement.added'`)).rows;
+    expect(added).toEqual([{ title: "Announce" }]);
+    const verdict = (await sc.pg.query<{ t: string; fp: string }>(`select jsonb_typeof(readiness_result) as t, readiness_result->>'fingerprint' as fp from launches`)).rows[0];
+    expect(verdict.t).toBe("object");
+    expect(verdict.fp).toBeTruthy();
+    // The room's activity feed gets objects back, so every field the UI reads is present.
+    const r = await room(sc);
+    const accepted = r.events.find((e) => e.type === "assignment.accepted")!;
+    expect(accepted.payload).toMatchObject({ label: "Ada" });
+  });
+
+  it("recomputing with nothing changed is quiet: no extra readiness.changed events", async () => {
+    const sc = await scenario();
+    await addReq(sc, { title: "Announce", kind: "commitment" });
+    const before = await count(sc, "readiness.changed");
+    for (let i = 0; i < 3; i++) {
+      await room(sc);
+      await sweepLaunch(sc.ctx, sc.launchId);
+    }
+    expect(await count(sc, "readiness.changed")).toBe(before);
+  });
+
   it("the launch can never display READY while a mandatory requirement is unsatisfied", async () => {
     const sc = await scenario();
     const a = await addReq(sc, { title: "A", kind: "commitment" });
