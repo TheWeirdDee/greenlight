@@ -313,7 +313,7 @@ function EvidenceList({ req }: { req: RoomRequirement }) {
             <span className="min-w-0 break-all">
               {e.kind === "url" ? <a className="underline underline-offset-2" href={e.value} target="_blank" rel="noreferrer noopener">{e.value}</a> : e.value}
             </span>
-            <span className="flex items-center gap-2 text-[12px] text-ink-3">
+            <span className="flex min-w-0 flex-wrap items-center gap-2 text-[12px] text-ink-3">
               {e.submittedByName} · {fmtDateTime(e.submittedAt)}
               {e.verification === "verified" ? <Pill tone="ready">Verified{e.verificationSummary ? `: ${e.verificationSummary}` : ""}</Pill> : null}
               {e.verification === "failed" ? <Pill tone="block">Failed{e.verificationSummary ? `: ${e.verificationSummary}` : ""}</Pill> : null}
