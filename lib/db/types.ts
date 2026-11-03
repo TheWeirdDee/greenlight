@@ -5,7 +5,7 @@
 export type Row = Record<string, unknown>;
 
 export interface Queryable {
-  query<T extends Row = Row>(text: string, params?: unknown[]): Promise<T[]>;
+  query<T extends object = Row>(text: string, params?: unknown[]): Promise<T[]>;
 }
 
 export interface Db extends Queryable {
