@@ -1,7 +1,11 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync } from "node:fs";
+import net from "node:net";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PGlite } from "@electric-sql/pglite";
-import type { Db, Queryable, Row } from "@/lib/db/types";
+import EmbeddedPostgres from "embedded-postgres";
+import postgres from "postgres";
+import { createPostgresDb } from "@/lib/db/postgres";
+import type { Row } from "@/lib/db/types";
 import type {
   Actor,
   ChainVerifier,
@@ -14,20 +18,12 @@ import type {
 import { TxNotFoundError } from "@/lib/services/context";
 import { ensureProfile } from "@/lib/services/launches";
 
-/** Test seam over PGlite: the real migrations, real SQL, real transactions — no mocks of our own queries. */
-export function pgliteDb(pg: PGlite): Db {
-  const wrap = (runner: Pick<PGlite, "query">): Queryable => ({
-    async query<T extends object = Row>(text: string, params: unknown[] = []) {
-      const res = await runner.query<T>(text, params);
-      return res.rows;
-    },
-  });
-  return {
-    ...wrap(pg),
-    transaction: (fn) => pg.transaction(async (tx) => fn(wrap(tx))),
-  };
-}
-
+/**
+ * Integration harness: a real PostgreSQL server (embedded-postgres binaries), the project's real
+ * migrations, and the production `postgres.js` adapter. Each scenario gets its own database cloned
+ * from a migrated template, so tests are isolated, concurrency is real (separate connections and row
+ * locks), and driver-level behaviour (e.g. jsonb parameter encoding) is exercised, not simulated.
+ */
 const BOOTSTRAP = `
   create schema if not exists auth;
   create table auth.users (id uuid primary key, email text);
@@ -39,34 +35,112 @@ const BOOTSTRAP = `
   end $$;
 `;
 
-// Migrations are applied once per test file; every scenario then gets its own clone of that
-// migrated database, so tests stay fully isolated without paying for a cold start each time.
-let template: Promise<PGlite> | undefined;
-function migratedTemplate() {
-  template ??= (async () => {
-    const pg = new PGlite();
-    await pg.exec(BOOTSTRAP);
-    const dir = join(process.cwd(), "supabase", "migrations");
-    for (const f of readdirSync(dir).filter((n) => n.endsWith(".sql")).sort()) {
-      await pg.exec(readFileSync(join(dir, f), "utf8"));
-    }
-    return pg;
-  })();
-  return template;
+const freePort = () =>
+  new Promise<number>((resolve, reject) => {
+    const s = net.createServer();
+    s.once("error", reject);
+    s.listen(0, "127.0.0.1", () => {
+      const { port } = s.address() as net.AddressInfo;
+      s.close(() => resolve(port));
+    });
+  });
+
+interface Server {
+  url: (database: string) => string;
+  admin: postgres.Sql;
+  stop: () => Promise<void>;
 }
 
-const open = new Set<PGlite>();
+let server: Promise<Server> | undefined;
+
+function boot(): Promise<Server> {
+  server ??= (async () => {
+    const port = await freePort();
+    const pg = new EmbeddedPostgres({
+      databaseDir: mkdtempSync(join(tmpdir(), "greenlight-test-pg-")),
+      user: "postgres",
+      password: "postgres",
+      port,
+      persistent: false,
+      initdbFlags: ["--encoding=UTF8", "--locale=C"],
+      onLog: () => {},
+      onError: () => {},
+    });
+    await pg.initialise();
+    await pg.start();
+    const url = (database: string) => `postgres://postgres:postgres@127.0.0.1:${port}/${database}`;
+    const admin = postgres(url("postgres"), { max: 2, onnotice: () => {} });
+
+    await admin.unsafe("create database template_gl");
+    const tpl = postgres(url("template_gl"), { max: 1, onnotice: () => {} });
+    await tpl.unsafe(BOOTSTRAP);
+    const dir = join(process.cwd(), "supabase", "migrations");
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".sql")).sort()) {
+      await tpl.unsafe(readFileSync(join(dir, f), "utf8"));
+    }
+    await tpl.end(); // a template database must have no open sessions
+
+    return {
+      url,
+      admin,
+      stop: async () => {
+        await admin.end();
+        await pg.stop();
+      },
+    };
+  })();
+  return server;
+}
+
+/** Stops the server started by this worker (wired to afterAll in tests/helpers/setup.ts). */
+export async function stopServer() {
+  if (!server) return;
+  const s = await server;
+  server = undefined;
+  await s.stop();
+}
+
+/** Raw SQL access for assertions and setup; one connection, so session state (SET ROLE) sticks. */
+export interface RawDb {
+  query<T extends object = Row>(text: string, params?: unknown[]): Promise<{ rows: T[]; affectedRows: number }>;
+  exec(text: string): Promise<void>;
+}
+
+const cleanups = new Set<() => Promise<void>>();
+let counter = 0;
+
 /** Closes every database opened by the current test (wired to afterEach in tests/helpers/setup.ts). */
 export async function closeAll() {
-  const all = [...open];
-  open.clear();
-  await Promise.allSettled(all.map((p) => p.close()));
+  const all = [...cleanups];
+  cleanups.clear();
+  await Promise.allSettled(all.map((fn) => fn()));
 }
 
 export async function freshDb() {
-  const pg = (await (await migratedTemplate()).clone()) as PGlite;
-  open.add(pg);
-  return { pg, db: pgliteDb(pg) };
+  const s = await boot();
+  counter += 1;
+  const name = `t${process.pid}_${counter}_${Date.now().toString(36)}`;
+  await s.admin.unsafe(`create database "${name}" template template_gl`);
+
+  process.env.DATABASE_POOL_MAX = "6";
+  const db = createPostgresDb(s.url(name));
+  const raw = postgres(s.url(name), { max: 1, prepare: false, onnotice: () => {} });
+  const pg: RawDb = {
+    async query<T extends object = Row>(text: string, params: unknown[] = []) {
+      const r = await raw.unsafe(text, params as never);
+      return { rows: r as unknown as T[], affectedRows: r.count ?? 0 };
+    },
+    async exec(text: string) {
+      await raw.unsafe(text);
+    },
+  };
+
+  cleanups.add(async () => {
+    await raw.end({ timeout: 1 });
+    await db.end?.();
+    await s.admin.unsafe(`drop database if exists "${name}" with (force)`);
+  });
+  return { pg, db };
 }
 
 /** A controllable clock so deadline behaviour is tested deterministically. */
@@ -111,10 +185,10 @@ export class FakeUrls implements UrlChecker {
   }
 }
 
-let counter = 0;
+let userCounter = 0;
 const uuid = () => {
-  counter += 1;
-  return `00000000-0000-4000-8000-${counter.toString().padStart(12, "0")}`;
+  userCounter += 1;
+  return `00000000-0000-4000-8000-${userCounter.toString().padStart(12, "0")}`;
 };
 
 export async function setup(startAt = new Date("2026-11-05T10:00:00Z")) {
