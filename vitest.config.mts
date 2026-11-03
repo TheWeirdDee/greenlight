@@ -6,8 +6,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["lib/**/*.test.ts", "tests/**/*.test.ts"],
-    testTimeout: 30_000,
-    hookTimeout: 60_000,
+    testTimeout: 90_000, // database suites boot an embedded PostgreSQL; several can start at once on a busy machine
+    hookTimeout: 180_000,
     setupFiles: ["tests/helpers/setup.ts"],
   },
 });
