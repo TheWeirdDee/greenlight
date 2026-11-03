@@ -1,26 +1,169 @@
 @import "tailwindcss";
 
+/*
+ * GREENLIGHT design tokens.
+ * Palette: warm paper + ink, with a traffic-signal vocabulary (ready / waiting / blocked / expired).
+ * Every status colour is always paired with an icon and a text label — colour is never the only cue.
+ * Theme: light by default, dark via [data-theme="dark"]; an inline script resolves "system" before paint.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #f2efe6;
+  --surface: #fbf9f3;
+  --sunken: #e9e5d8;
+  --ink: #141410;
+  --ink-2: #47443a;
+  --ink-3: #6a665a;
+  --line: #d9d4c4;
+  --line-strong: #b4ae9a;
+
+  --ready: #0a7440;
+  --ready-bg: #dbf0e3;
+  --ready-lamp: #14c26b;
+  --wait: #82540a;
+  --wait-bg: #f5e6c4;
+  --wait-lamp: #f0a81c;
+  --block: #b0261c;
+  --block-bg: #f7dcd6;
+  --block-lamp: #e5412f;
+  --expired: #5a3b9a;
+  --expired-bg: #e7def6;
+  --lamp-off: #cdc7b4;
+
+  --focus: #1f5fd1;
+  --shadow: 0 1px 0 rgb(20 20 16 / 0.04), 0 8px 24px -12px rgb(20 20 16 / 0.18);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --paper: #0d0e0b;
+  --surface: #151712;
+  --sunken: #1d1f19;
+  --ink: #ecebe3;
+  --ink-2: #bdbbae;
+  --ink-3: #8f8d80;
+  --line: #292c24;
+  --line-strong: #43463b;
+
+  --ready: #4fe08d;
+  --ready-bg: #12301f;
+  --ready-lamp: #33e07f;
+  --wait: #f4bb54;
+  --wait-bg: #33260b;
+  --wait-lamp: #f7b52b;
+  --block: #ff7d6e;
+  --block-bg: #3a1612;
+  --block-lamp: #ff5a47;
+  --expired: #bda6ff;
+  --expired-bg: #2a1f45;
+  --lamp-off: #34372d;
+
+  --focus: #7aa7ff;
+  --shadow: 0 1px 0 rgb(0 0 0 / 0.4), 0 10px 30px -14px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ready: var(--ready);
+  --color-ready-bg: var(--ready-bg);
+  --color-wait: var(--wait);
+  --color-wait-bg: var(--wait-bg);
+  --color-block: var(--block);
+  --color-block-bg: var(--block-bg);
+  --color-expired: var(--expired);
+  --color-expired-bg: var(--expired-bg);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-fraunces), Georgia, serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--paper);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  min-width: 320px;
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fraunces' optical-size axis gives the display face tight, editorial large sizes. */
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 30;
+  letter-spacing: -0.02em;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--ready-lamp);
+  color: #06140c;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -64px;
+  z-index: 100;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 10px 14px;
+  border-radius: 8px;
+  transition: top 0.15s;
+}
+.skip-link:focus {
+  top: 12px;
+}
+
+/* A faint ruled-paper texture on large surfaces: structure without decoration. */
+.ruled {
+  background-image: linear-gradient(to bottom, transparent 31px, var(--line) 32px);
+  background-size: 100% 32px;
+}
+
+@keyframes lamp-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, currentColor 0%, transparent);
+  }
+}
+.lamp-live {
+  animation: lamp-pulse 2.4s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
