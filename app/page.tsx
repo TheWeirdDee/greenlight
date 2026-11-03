@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/brand";
 import { RecoveryFlow, Reveal } from "@/components/landing/reveal";
+import { MobileMenu } from "@/components/landing/mobile-menu";
 import { Simulator } from "@/components/landing/simulator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonClass } from "@/components/button-class";
@@ -20,6 +21,15 @@ const steps = [
   { n: "04", title: "Recalculate, then decide", body: "A deterministic engine re-evaluates on every event — and when a deadline silently passes. It says READY only when every mandatory requirement is satisfied. The call stays yours." },
 ];
 
+const difference = [
+  { topic: "Who can mark it done", checklist: "Anyone with edit access, by ticking a box.", greenlight: "Only the accountable person, confirming from their own account. Funding and websites are checked by Greenlight itself." },
+  { topic: "Deadlines", checklist: "A date in a column that nobody is watching.", greenlight: "Enforced. A missed deadline expires the requirement and blocks the launch on its own." },
+  { topic: "Dependencies", checklist: "Notes, or a convention people forget.", greenlight: "“Announcement” cannot count until “Budget” is satisfied — and says why." },
+  { topic: "Money", checklist: "“Funded ✅”, typed by hand.", greenlight: "A Base transaction, re-checked on-chain: network, token, recipient, amount, confirmations." },
+  { topic: "When someone goes quiet", checklist: "You notice eventually — maybe after you announced.", greenlight: "A named blocker with its impact and an authorised, one-click recovery." },
+  { topic: "The outcome", checklist: "A feeling of progress.", greenlight: "READY or NOT READY, plus a shareable record of who confirmed what, and when." },
+] as const;
+
 export default function Home() {
   return (
     <div className="min-h-dvh">
@@ -28,14 +38,18 @@ export default function Home() {
           <Wordmark />
           <nav aria-label="Primary" className="hidden items-center gap-6 text-sm text-ink-2 md:flex">
             <a href="#sample" className="hover:text-ink">Live sample</a>
+            <a href="#difference" className="hover:text-ink">Why not a checklist</a>
             <a href="#how" className="hover:text-ink">How it works</a>
             <a href="#evidence" className="hover:text-ink">Evidence</a>
             <a href="#limits" className="hover:text-ink">Limits</a>
           </nav>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Link href="/login" className={`${buttonClass("ghost", "sm")} max-sm:hidden`}>Sign in</Link>
-            <Link href="/login?mode=signup" className={`${buttonClass("primary", "sm")} max-sm:hidden`}>Open a launch room</Link>
+            <div className="max-md:hidden">
+              <ThemeToggle />
+            </div>
+            <Link href="/login" className={`${buttonClass("ghost", "sm")} max-md:hidden`}>Sign in</Link>
+            <Link href="/login?mode=signup" className={`${buttonClass("primary", "sm")} max-md:hidden`}>Open a launch room</Link>
+            <MobileMenu />
           </div>
         </div>
       </header>
@@ -56,6 +70,20 @@ export default function Home() {
               <a href="#how" className={buttonClass("secondary")}>How it works</a>
             </div>
             <p className="mt-4 text-[13px] text-ink-3">Free to try · Base Sepolia testnet only · no real funds are ever held or moved</p>
+            <dl className="mt-10 grid gap-5 border-t border-line pt-6 text-[15px] sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+              <div>
+                <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">For</dt>
+                <dd className="mt-1 leading-snug">Founders and launch operators coordinating a token or onchain-product launch.</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">When</dt>
+                <dd className="mt-1 leading-snug">The last 24–72 hours, when “are we actually ready?” is the only question.</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">Not</dt>
+                <dd className="mt-1 leading-snug">A task manager. It checks the work is real, then hands you the decision.</dd>
+              </div>
+            </dl>
           </div>
 
           <div id="sample" className="min-w-0 scroll-mt-20">
@@ -88,6 +116,46 @@ export default function Home() {
               </ul>
             </Reveal>
           </div>
+        </section>
+
+        {/* Difference */}
+        <section id="difference" className="mx-auto max-w-6xl scroll-mt-16 px-4 py-16 sm:px-6 sm:py-24">
+          <Reveal>
+            <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-ink-3">Why not Notion, Trello or a spreadsheet?</p>
+            <h2 className="mt-3 max-w-3xl font-display text-4xl leading-tight sm:text-5xl">A checklist records what people say. Greenlight records what happened.</h2>
+          </Reveal>
+          <Reveal delay={0.05}>
+            <div className="mt-10 overflow-hidden rounded-2xl border border-line">
+              <div className="hidden grid-cols-[1fr_1.25fr_1.25fr] bg-sunken px-5 py-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3 md:grid">
+                <span />
+                <span>Checklist · Notion · Trello</span>
+                <span className="text-ready">Greenlight</span>
+              </div>
+              <ul className="divide-y divide-line bg-surface">
+                {difference.map((d) => (
+                  <li key={d.topic} className="grid gap-x-8 gap-y-2 px-5 py-5 md:grid-cols-[1fr_1.25fr_1.25fr]">
+                    <p className="font-medium">{d.topic}</p>
+                    <p className="text-[15px] leading-snug text-ink-2"><span className="mr-2 font-mono text-[11px] uppercase tracking-wider text-ink-3 md:hidden">Checklist</span>{d.checklist}</p>
+                    <p className="text-[15px] leading-snug"><span className="mr-2 font-mono text-[11px] uppercase tracking-wider text-ready md:hidden">Greenlight</span>{d.greenlight}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <ol className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3" aria-label="When to use Greenlight">
+              {[
+                ["72 hours out", "Define what must be true. Invite the owner of each piece. Authorise backups."],
+                ["24 hours out", "Close the blockers that remain. Verify funding. Watch deadlines, not chat."],
+                ["Launch hour", "Read one verdict. Decide. Share the brief with the people who need it."],
+              ].map(([t, b]) => (
+                <li key={t} className="bg-surface p-5">
+                  <p className="font-display text-xl">{t}</p>
+                  <p className="mt-1 text-[15px] text-ink-2">{b}</p>
+                </li>
+              ))}
+            </ol>
+          </Reveal>
         </section>
 
         {/* How it works */}
