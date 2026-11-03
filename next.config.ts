@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Pages are per-user and read live state, so they render dynamically per request.
   turbopack: {
     rules: {
       "*.css": {
@@ -12,6 +10,8 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // `undici` ships native-ish Node internals that must not be bundled into the server build.
+  serverExternalPackages: ["undici", "postgres"],
 };
 
 export default nextConfig;
