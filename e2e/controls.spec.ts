@@ -37,6 +37,9 @@ async function addReq(page: Page, f: { kind?: string; title: string; deadline?: 
 }
 
 async function invite(page: Page, title: string, label: string) {
+  // A banner from an earlier invitation may still be on screen; dismiss it so we never read a stale link.
+  const stale = page.getByRole("status").filter({ hasText: "Invitation ready for" });
+  if (await stale.count()) await stale.first().getByRole("button", { name: "Dismiss" }).click();
   const c = card(page, title);
   await c.getByLabel("Invite a contributor").fill(label);
   await c.getByRole("button", { name: "Create invitation" }).click();
