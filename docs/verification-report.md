@@ -127,9 +127,18 @@ transitions, brief) and the funding journey — blocked on confirmed accounts an
 None performed: no first-time-user usability test, no five-operator customer interviews. The one-pager's
 willingness-to-pay question remains unproven.
 
-## Final local browser run
+## Final local browser run (class B — local stand-in for Auth)
 
-See the section appended below once the final run completes.
+One complete `npx playwright test` on a fresh local stack: **33 passed, 0 failed, 1 skipped** in 5.1 minutes. The one
+skip is `e2e/real.spec.ts`, which skips by design until confirmed accounts are configured. The 33 are: desktop — 8 axe
+scans, 11 public-page tests, the full four-session workflow (create → confirm → fund against a real pre-existing
+transfer → deadline expiry → recovery → READY → brief → share → revoke → authorization → 320/390 px overflow), and the
+controls journey (account, edit launch, presets, dependencies, decline → replace, portal confirm, hostile-link refusal,
+withdrawal, re-issue, release, hold/override/revert) plus the mobile-menu test; mobile (Pixel 5) — 11 public-page tests.
+
+Earlier in the same session an interim full run failed once: the controls journey hung on a stale invitation banner (a
+test race, not a product defect — fixed by dismissing the banner and bounding action timeouts) and the mobile theme test
+had to learn about the new menu. Both were fixed and the suite above is the re-run.
 
 ## Remaining manual actions
 
