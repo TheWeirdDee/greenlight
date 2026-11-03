@@ -1,4 +1,5 @@
-import { afterEach } from "vitest";
-import { closeAll } from "./harness";
+import { afterAll, afterEach } from "vitest";
+import { closeAll, stopServer } from "./harness";
 
 afterEach(closeAll);
+afterAll(stopServer);
