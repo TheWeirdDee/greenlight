@@ -19,6 +19,7 @@ if (!url) {
 }
 
 const sql = postgres(url, { max: 1, onnotice: () => {} });
+let failed = false;
 const blockers = [];
 const warnings = [];
 const line = (k, v) => console.log(`${k.padEnd(34)} ${v}`);
@@ -91,8 +92,8 @@ try {
     line("auth settings", "skipped (set NEXT_PUBLIC_SUPABASE_URL and the publishable key to include them)");
   }
 } catch (e) {
-  console.error(`Audit failed: ${e.message}`);
-  process.exitCode = 1;
+  console.error(`Audit could not complete: ${e.message}`);
+  failed = true;
 } finally {
   await sql.end();
 }
@@ -100,5 +101,9 @@ try {
 console.log("");
 for (const w of warnings) console.log(`WARNING  ${w}\n`);
 for (const b of blockers) console.log(`BLOCKER  ${b}\n`);
+if (failed) {
+  console.log("VERDICT: UNKNOWN — the audit did not complete, so nothing can be concluded. Fix the error above and re-run.");
+  process.exit(1);
+}
 console.log(blockers.length ? "VERDICT: NOT SAFE to apply until the blockers above are resolved." : "VERDICT: compatible. Run `npm run db:migrate -- --dry-run` next, then `npm run db:migrate`.");
 if (blockers.length) process.exitCode = 1;
