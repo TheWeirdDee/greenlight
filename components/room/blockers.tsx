@@ -15,7 +15,7 @@ export function BlockerList({ room, onIssued }: { room: Room; onIssued: (i: Issu
   const nowMs = new Date(room.serverNow).getTime();
 
   return (
-    <Card className="p-5 sm:p-6">
+    <Card className="scroll-mt-20 p-5 sm:p-6" id="blockers">
       <div className="flex items-baseline justify-between gap-3">
         <div>
           <Eyebrow>What&apos;s stopping the launch</Eyebrow>
@@ -67,7 +67,13 @@ export function BlockerList({ room, onIssued }: { room: Room; onIssued: (i: Issu
                   </dl>
                   {room.isOwner && !room.launch.decision?.startsWith("proceed") ? (
                     <div className="mt-3">
-                      <Recovery req={req} nextCode={b.next.code} backupLabel={backup?.label ?? null} onIssued={onIssued} />
+                      {b.next.code === "assign_owner" ? (
+                        <a href={`#req-${req.id}`} className="inline-flex items-center gap-1 text-sm font-medium underline underline-offset-4">
+                          Assign someone in the requirement below ↓
+                        </a>
+                      ) : (
+                        <Recovery req={req} nextCode={b.next.code} backupLabel={backup?.label ?? null} onIssued={onIssued} />
+                      )}
                     </div>
                   ) : null}
                 </motion.li>
