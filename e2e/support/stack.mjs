@@ -43,7 +43,19 @@ await pg.exec(`
   end $$;
 `);
 const migrations = join(process.cwd(), "supabase", "migrations");
-for (const f of readdirSync(migrations).filter((n) => n.endsWith(".sql")).sort()) await pg.exec(readFileSync(join(migrations, f), "utf8"));
+// Same sequence as scripts/migrate.mjs: bootstrap (role + schema), then each migration in a transaction.
+await pg.exec(readFileSync(join(process.cwd(), "supabase", "bootstrap.sql"), "utf8"));
+for (const f of readdirSync(migrations).filter((n) => n.endsWith(".sql")).sort()) {
+  await pg.exec("begin");
+  try {
+    await pg.exec(readFileSync(join(migrations, f), "utf8"));
+    await pg.exec("commit");
+  } catch (e) {
+    await pg.exec("rollback");
+    throw e;
+  }
+}
+await pg.exec("alter role greenlight_app login password 'e2e'"); // the app logs in as this role, never as postgres
 
 // ── JWT helpers ──────────────────────────────────────────────────────────────────────────
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
