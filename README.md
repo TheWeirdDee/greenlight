@@ -36,37 +36,70 @@ Framer Motion · Supabase (Auth, Postgres, Realtime) · wagmi 3 · viem 2 · zod
 
 Prerequisites: Node ≥ 20.19, a Supabase project, a browser wallet (for the funding step).
 
-### 1. Supabase
+### 1. Supabase — Greenlight shares your project safely
 
-1. Create a project at <https://supabase.com>.
-2. **Authentication → Providers → Email**: enable. For smooth multi-person demos turn **"Confirm email" off**
-   (Supabase's built-in SMTP is rate-limited to a few emails per hour).
-3. **Project Settings → API**: copy the project URL and the **publishable** key.
-4. **Project Settings → Database → Connection string**: copy the *transaction pooler* string (port 6543) for the
-   app, and the *direct* string (port 5432) for migrations.
-5. **Database → Replication**: nothing to do — the migration adds `events` and `launches` to the
-   `supabase_realtime` publication.
+Greenlight is designed to live in a Supabase project that **already hosts other applications**. It never touches
+`public` or any existing object:
+
+- Everything is created in its own **`greenlight` schema**, owned by a dedicated **`greenlight_app`** role
+  (`supabase/bootstrap.sql` + `supabase/migrations/`).
+- The app logs in as `greenlight_app`, which can see only that schema: it cannot read other apps' tables or
+  `auth.users`, and it has no `service_role` key or admin credentials.
+- Browsers get `SELECT` on three Greenlight tables (for Realtime) and nothing else; the schema is not exposed to
+  PostgREST, so there is no REST path to the data. Row Level Security is a second wall (`tests/rls.test.ts`).
+- **Supabase Auth is shared**, so one account works across all apps on the project. Authorization is by Greenlight
+  workspace membership, not by having an account. Project-wide Auth settings (email confirmation, SMTP, Site URL)
+  are **never changed by Greenlight**.
+
+Setup, in order (every step before step 5 is read-only):
+
+1. `npm run env:init -- <project-ref>` — creates `.env.local` (git-ignored) with the project URL and freshly
+   generated secrets.
+2. In the Supabase dashboard: **Project Settings → API Keys** → copy the **publishable** key into
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+3. **Connect → Session pooler** → copy the connection string for the `postgres` role, fill in your database
+   password, and paste it as `MIGRATION_DATABASE_URL`. (Session pooler works on IPv4 networks; the direct host is
+   IPv6-only.) Then run `npm run env:compose` to derive the app's own `DATABASE_URL`.
+4. `npm run db:audit` — read-only compatibility report: server version, privileges, name clashes, triggers on the
+   shared `auth.users`, the realtime publication, and the project's public Auth settings. It prints a verdict.
+5. `npm run db:migrate -- --dry-run` — applies everything inside a transaction and **rolls it back**; then
+   `npm run db:migrate` to apply for real. Both are idempotent and atomic.
+
+Rehearse the whole rollout locally first, with no credentials, against a simulated shared project (another app's
+tables and data, a trigger on `auth.users`, a non-superuser admin): `npm run db:rehearse`.
+
+**Things to decide on the shared project** (Greenlight will not change them for you):
+
+- *Email confirmation.* If it is on, sign-up shows "check your inbox" and `/auth/callback` completes the session.
+  The email uses the project's shared template and **Site URL**; to make the link land on Greenlight, add
+  `https://<your-domain>/auth/callback` to **Authentication → URL Configuration → Redirect URLs** (additive — it
+  does not alter the Site URL). If it is off, sign-up signs the user in immediately.
+- *Triggers on `auth.users`.* If another app has one, it also fires when someone signs up through Greenlight
+  (`db:audit` lists them). Greenlight does not modify it.
+- *Existing accounts.* People who already have an account on the project simply sign in; they are not prompted to
+  create a new one.
 
 ### 2. Environment variables
 
-Copy [`.env.example`](.env.example) to `.env.local`:
+`.env.local` (or Vercel's environment settings) — see [`.env.example`](.env.example):
 
 | Variable | Scope | Purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | public | Supabase project URL. |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | public | Publishable (anon-equivalent) key. Safe in the browser; RLS protects data. |
-| `DATABASE_URL` | **server** | Postgres connection used by server actions (bypasses RLS — never expose). |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | public | Publishable key. Safe in the browser. |
+| `DATABASE_URL` | **server** | The `greenlight_app` login (transaction pooler, port 6543). Never the `postgres` role. |
 | `DATABASE_POOL_MAX` | server, optional | Connections per instance (default 3; use `1` on serverless). |
 | `BASE_SEPOLIA_RPC_URL` | server, optional | Dedicated RPC. Defaults to `https://sepolia.base.org`. |
-| `CRON_SECRET` | **server** | Authenticates the scheduled sweep (`openssl rand -hex 32`). |
+| `CRON_SECRET` | **server** | Authenticates the scheduled sweep. |
+| `MIGRATION_DATABASE_URL` | **local only** | `postgres` role, for `db:audit` / `db:migrate`. **Never set in Vercel.** |
+| `GREENLIGHT_DB_PASSWORD` | **local only** | Becomes the `greenlight_app` password (sent as a SCRAM verifier, never in plaintext). |
 
-No secret or service-role key is ever placed in a `NEXT_PUBLIC_` variable, and none is logged.
+No secret, service-role key or database password is ever placed in a `NEXT_PUBLIC_` variable or logged.
 
-### 3. Migrate and run
+### 3. Run
 
 ```bash
 npm install
-DATABASE_URL="<direct connection string>" npm run db:migrate   # idempotent
 npm run dev
 ```
 
@@ -79,8 +112,9 @@ Sepolia*). Token: `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (decimals are rea
 
 - **Authorization is server-side**, in `lib/services/access.ts`, from a signature-verified JWT. The browser
   cannot name its own identity.
-- **No browser write path.** RLS is enabled on every table; the only policies are read-only and scoped
-  (`tests/rls.test.ts` proves it as the `authenticated` role).
+- **Isolation and least privilege.** Own schema, own role; the app role cannot read other apps' tables or `auth.users`.
+  Browsers have `SELECT` on three tables and no write path; RLS holds even if privileges were widened by mistake
+  (`tests/rls.test.ts`, 11 tests).
 - **Invitations**: 256-bit secrets, stored hashed, single-use, expiring, revocable. The founder cannot accept
   their own invitation or confirm for anyone.
 - **Funding is never trusted from the client.** Only the hash is accepted; everything else is re-derived from
@@ -108,7 +142,7 @@ End-to-end (Playwright, real browser, four independent sessions):
 npm run e2e:stack          # postgres :54329, auth :54330 (override with E2E_DB_PORT / E2E_AUTH_PORT)
 
 # terminal 2 — build and start the app against it (NEXT_PUBLIC_* values are inlined at build time)
-export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:54329/postgres
+export DATABASE_URL=postgres://greenlight_app:e2e@127.0.0.1:54329/postgres
 export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54330 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=local
 export CRON_SECRET=local-e2e-cron-secret-123
 npm run build && npx next start -p 3300
