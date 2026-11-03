@@ -11,7 +11,7 @@ export function createPostgresDb(url: string): Db {
   const sql = postgres(url, { prepare: false, max: 5, idle_timeout: 20, connect_timeout: 10 });
 
   const wrap = (runner: postgres.Sql | postgres.TransactionSql): Queryable => ({
-    async query<T extends Row = Row>(text: string, params: unknown[] = []) {
+    async query<T extends object = Row>(text: string, params: unknown[] = []) {
       const rows = await runner.unsafe(text, params as Params);
       return rows as unknown as T[];
     },
