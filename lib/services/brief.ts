@@ -246,7 +246,7 @@ export async function recordDecision(
     await tx.query(
       `update launches set decision = $2, decision_note = $3, decision_at = $4, decision_by = $5, decision_snapshot = $6::jsonb
        where id = $1`,
-      [launchId, decision, input.note || null, now, actor.id, JSON.stringify({ unresolved, brief })],
+      [launchId, decision, input.note || null, now, actor.id, { unresolved, brief }],
     );
     await appendEvent(tx, launchId, now, {
       type: "launch.decision",
