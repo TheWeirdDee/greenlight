@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMemo, useReducer } from "react";
 import { evaluateReadiness } from "@/lib/readiness/engine";
 import type { EngineInput } from "@/lib/readiness/types";
-import { lampFor, Pill, severityTone, SignalLamps, StatusPill, TierBadge } from "../status";
+import { lampFor, SignalLamps, StatusPill, TierBadge } from "../status";
 import { Button } from "../ui";
 
 /**
@@ -178,13 +178,6 @@ export function Simulator() {
               </motion.li>
             ))}
           </ul>
-          {r.blockers.length > 0 ? (
-            <div className="mt-4 flex flex-wrap gap-2" aria-label="Blocker severities">
-              {r.blockers.map((b) => (
-                <Pill key={b.requirementId} tone={severityTone(b.severity)}>{b.severity === "waiting" ? "Waiting" : b.severity === "expired" ? "Expired" : "Blocked"}: {b.title.split(" ").slice(0, 2).join(" ")}…</Pill>
-              ))}
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
