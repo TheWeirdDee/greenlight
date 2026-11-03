@@ -15,6 +15,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3300",
     timezoneId: "UTC",
+    actionTimeout: 30_000, // a click on something that never appears must fail fast, not hang to the test timeout
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
