@@ -46,12 +46,6 @@ const p2 = (n: number) => String(n).padStart(2, "0");
 const fmt = (d: Date) =>
   `${p2(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())} UTC`;
 
-function activePrimary(assignments: EngineAssignment[], requirementId: string) {
-  return assignments.find(
-    (a) => a.requirementId === requirementId && a.role === "primary" && a.state !== "released",
-  );
-}
-
 function standbyBackup(assignments: EngineAssignment[], requirementId: string) {
   return assignments.find(
     (a) => a.requirementId === requirementId && a.role === "backup" && a.state === "standby",
@@ -93,7 +87,8 @@ function evaluateOwn(
   const { assignments, now } = input;
   const deadline = r.deadlineAt;
   const deadlinePassed = deadline !== null && now.getTime() > deadline.getTime();
-  const owner = activePrimary(assignments, r.id) ?? null;
+  const livePrimaries = assignments.filter((a) => a.requirementId === r.id && a.role === "primary" && a.state !== "released");
+  const owner = livePrimaries.length === 1 ? livePrimaries[0] : null;
   const ownerLabel = owner?.label ?? null;
 
   const unsatisfied = (
@@ -168,6 +163,17 @@ function evaluateOwn(
     }
     return null;
   };
+
+  // The database forbids two live owners, but the engine must not depend on that: with conflicting owners
+  // there is no single accountable person, so the requirement cannot be satisfied (and the result must not
+  // depend on the order the rows happen to arrive in).
+  if (livePrimaries.length > 1 && r.kind !== "funding") {
+    return unsatisfied(
+      "blocked",
+      [{ code: "conflicting_owners", message: `${livePrimaries.length} contributors are simultaneously assigned as owner` }],
+      { code: "resolve_owner_conflict", actor: "founder", label: "Release all but one owner" },
+    );
+  }
 
   switch (r.kind) {
     case "commitment": {
