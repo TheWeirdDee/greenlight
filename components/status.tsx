@@ -36,7 +36,8 @@ function Glyph({ tone }: { tone: Tone }) {
     case "wait":
       return (
         <svg {...common}>
-          <path d="M5 2.5h6M5 13.5h6M5.5 2.5c0 3 5 3.5 5 5.5s-5 2.5-5 5.5" />
+          <circle cx="8" cy="8" r="5.5" />
+          <path d="M5.4 8h.01M8 8h.01M10.6 8h.01" strokeWidth="2.4" />
         </svg>
       );
     default:
