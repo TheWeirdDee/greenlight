@@ -27,6 +27,7 @@ export function createPostgresDb(url: string): Db {
 
   return {
     ...wrap(sql),
+    end: () => sql.end({ timeout: 2 }),
     transaction: <T>(fn: (tx: Queryable) => Promise<T>) =>
       sql.begin(async (tx) => fn(wrap(tx))) as Promise<T>,
   };
