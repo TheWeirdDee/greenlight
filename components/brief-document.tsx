@@ -1,4 +1,5 @@
 import { addressUrl } from "@/lib/chain/config";
+import { safeHref } from "@/lib/safe-url";
 import { fmtAmount, fmtDateTime, shortAddr, shortHash } from "@/lib/format";
 import type { Brief } from "@/lib/services/brief";
 import { Pill, TierBadge } from "./status";
@@ -90,7 +91,7 @@ export function BriefDocument({ brief, heading }: { brief: Brief; heading?: stri
                 <ul className="mt-3 divide-y divide-line rounded-lg border border-line text-sm">
                   {r.evidence.map((e, i) => (
                     <li key={i} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2">
-                      <span className="min-w-0 break-all">{e.value === null ? <em className="text-ink-3">Note (withheld from public view)</em> : e.kind === "url" ? <a className="underline underline-offset-2" href={e.value} rel="noreferrer noopener" target="_blank">{e.value}</a> : e.value}</span>
+                      <span className="min-w-0 break-all">{e.value === null ? <em className="text-ink-3">Note (withheld from public view)</em> : e.kind === "url" && safeHref(e.value) ? <a className="underline underline-offset-2" href={safeHref(e.value)} rel="noreferrer noopener" target="_blank">{e.value}</a> : e.value}</span>
                       <span className="flex min-w-0 flex-wrap items-center gap-2 text-[12px] text-ink-3">
                         {e.submittedBy} · {fmtDateTime(e.submittedAt)}
                         <Pill tone={e.knownAs === "verified" ? "ready" : e.knownAs === "failed" ? "block" : "neutral"}>
