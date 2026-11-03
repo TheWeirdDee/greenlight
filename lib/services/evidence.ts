@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { Queryable } from "@/lib/db/types";
 import { conflict, forbidden, invalid, notFound } from "@/lib/errors";
+import { assertWithinRate } from "@/lib/rate-limit";
 import { evidenceInput } from "@/lib/validation";
 import type { Actor, Ctx } from "./context";
 import { appendEvent, asEventActor, assertNotLaunched, withLaunch } from "./core";
@@ -43,6 +44,8 @@ export async function submitEvidence(
   idempotencyKey?: string,
 ) {
   const input = evidenceInput.parse(raw);
+  // Site checks make an outbound request from our server: throttle them per person.
+  if (input.kind === "url") assertWithinRate(`url:${actor.id}`, 12, 60_000, ctx.now());
   const [req] = await ctx.db.query<ReqRow>(`select id, launch_id, title, kind::text as kind from requirements where id = $1`, [
     requirementId,
   ]);
