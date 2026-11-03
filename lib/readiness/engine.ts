@@ -40,7 +40,11 @@ type Own = {
 
 const NONE: NextAction = { code: "none", actor: "none", label: "No action needed" };
 
-const fmt = (d: Date) => d.toISOString().replace(".000Z", "Z");
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const p2 = (n: number) => String(n).padStart(2, "0");
+/** Deterministic, locale-independent UTC formatting, e.g. "08 Nov 2026, 18:00 UTC". */
+const fmt = (d: Date) =>
+  `${p2(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())} UTC`;
 
 function activePrimary(assignments: EngineAssignment[], requirementId: string) {
   return assignments.find(
