@@ -25,10 +25,10 @@ export function AuthForm({ next, initialMode, invite }: { next: string; initialM
         <input type="hidden" name="next" value={next} />
         {mode === "signup" ? (
           <Field label="Your name" hint="Shown next to your confirmations in the activity log.">
-            {(p) => <Input {...p} name="name" autoComplete="name" required maxLength={80} />}
+            {(p) => <Input {...p} name="name" autoComplete="name" required maxLength={80} defaultValue={state.name} />}
           </Field>
         ) : null}
-        <Field label="Email">{(p) => <Input {...p} name="email" type="email" autoComplete="email" required />}</Field>
+        <Field label="Email">{(p) => <Input {...p} name="email" type="email" autoComplete="email" required defaultValue={state.email} />}</Field>
         <Field label="Password" hint={mode === "signup" ? "At least 8 characters." : undefined}>
           {(p) => <Input {...p} name="password" type="password" autoComplete={mode === "signin" ? "current-password" : "new-password"} required minLength={8} />}
         </Field>
