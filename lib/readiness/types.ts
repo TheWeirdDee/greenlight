@@ -85,7 +85,8 @@ export type ReasonCode =
   | "waiting_on_dependency"
   | "dependency_blocked"
   | "dependency_cycle"
-  | "dependency_missing";
+  | "dependency_missing"
+  | "conflicting_owners";
 
 export interface Reason {
   code: ReasonCode;
@@ -105,6 +106,7 @@ export type NextActionCode =
   | "wait_for_confirmations"
   | "resolve_dependency"
   | "fix_dependencies"
+  | "resolve_owner_conflict"
   | "none";
 
 export interface NextAction {
