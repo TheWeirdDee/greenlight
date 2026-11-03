@@ -17,7 +17,7 @@ import { ensureProfile } from "@/lib/services/launches";
 /** Test seam over PGlite: the real migrations, real SQL, real transactions — no mocks of our own queries. */
 export function pgliteDb(pg: PGlite): Db {
   const wrap = (runner: Pick<PGlite, "query">): Queryable => ({
-    async query<T extends Row = Row>(text: string, params: unknown[] = []) {
+    async query<T extends object = Row>(text: string, params: unknown[] = []) {
       const res = await runner.query<T>(text, params);
       return res.rows;
     },
@@ -59,10 +59,6 @@ export class TestClock {
   advanceHours(h: number) {
     this.t = new Date(this.t.getTime() + h * 3_600_000);
   }
-}
-
-export interface FakeTx extends FundingVerification {
-  token?: string;
 }
 
 export class FakeChain implements ChainVerifier {
