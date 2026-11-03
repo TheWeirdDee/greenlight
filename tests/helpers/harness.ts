@@ -39,13 +39,33 @@ const BOOTSTRAP = `
   end $$;
 `;
 
+// Migrations are applied once per test file; every scenario then gets its own clone of that
+// migrated database, so tests stay fully isolated without paying for a cold start each time.
+let template: Promise<PGlite> | undefined;
+function migratedTemplate() {
+  template ??= (async () => {
+    const pg = new PGlite();
+    await pg.exec(BOOTSTRAP);
+    const dir = join(process.cwd(), "supabase", "migrations");
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".sql")).sort()) {
+      await pg.exec(readFileSync(join(dir, f), "utf8"));
+    }
+    return pg;
+  })();
+  return template;
+}
+
+const open = new Set<PGlite>();
+/** Closes every database opened by the current test (wired to afterEach in tests/helpers/setup.ts). */
+export async function closeAll() {
+  const all = [...open];
+  open.clear();
+  await Promise.allSettled(all.map((p) => p.close()));
+}
+
 export async function freshDb() {
-  const pg = new PGlite();
-  await pg.exec(BOOTSTRAP);
-  const dir = join(process.cwd(), "supabase", "migrations");
-  for (const f of readdirSync(dir).filter((n) => n.endsWith(".sql")).sort()) {
-    await pg.exec(readFileSync(join(dir, f), "utf8"));
-  }
+  const pg = (await (await migratedTemplate()).clone()) as PGlite;
+  open.add(pg);
   return { pg, db: pgliteDb(pg) };
 }
 
