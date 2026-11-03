@@ -1,5 +1,13 @@
 # Demo script — target 2:30
 
+## Before recording (all must be true — otherwise it isn't a production demo)
+
+1. The app is deployed (currently <https://greenlight-gold-eight.vercel.app>) and `npm run test:e2e:real` has passed against it.
+2. Four **confirmed** accounts exist (Founder, Ada, Grace + one spare). Use three separate browser profiles so the contributor sessions are visibly independent.
+3. The founder's browser wallet is on **Base Sepolia** with test ETH (gas) and test USDC (<https://faucet.circle.com>).
+4. After recording the funding beat, run `npm run verify:funding -- <launch-id>` and keep its output: it re-checks the transaction against the chain and fails if the transfer pre-dates the requirement.
+5. Brand-new launch for the take: never reuse one created before the camera was rolling.
+
 Record **real product footage only**: the deployed app, a real browser, real sign-ups. Disclose on
 screen that funding is **Base Sepolia testnet**. Pre-create three browser profiles (Founder, Ada, Grace)
 so the contributor sessions are visibly independent. Set the short-fuse deadline to ~90 seconds from the
