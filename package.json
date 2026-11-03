@@ -17,7 +17,8 @@
     "env:init": "node scripts/env.mjs init",
     "env:compose": "node scripts/env.mjs compose",
     "env:status": "node scripts/env.mjs status",
-    "db:rehearse": "node e2e/support/shared-project.mjs"
+    "db:rehearse": "node e2e/support/shared-project.mjs",
+    "db:verify": "node scripts/verify-isolation.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
