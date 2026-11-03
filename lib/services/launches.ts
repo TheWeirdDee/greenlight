@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { Db, Queryable } from "@/lib/db/types";
-import { invalid, notFound } from "@/lib/errors";
+import { conflict, invalid, notFound } from "@/lib/errors";
 import { launchInput, requirementInput, workspaceInput } from "@/lib/validation";
 import { toBaseUnits } from "@/lib/units";
 import { requireLaunchOwner, ensureWorkspaceOwner } from "./access";
