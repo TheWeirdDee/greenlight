@@ -94,6 +94,15 @@ test.describe("public pages", () => {
     await expect(page.getByText("Nothing here.")).toBeVisible();
   });
 
+  test("an invalid or missing email-confirmation link fails safely and cannot redirect off-site", async ({ page }) => {
+    await page.goto("/auth/callback?code=not-a-real-code&next=https://evil.example/steal");
+    await expect(page).toHaveURL(/\/login\?error=confirmation/);
+    expect(new URL(page.url()).hostname).not.toBe("evil.example");
+    await expect(page.getByRole("alert").filter({ hasText: "invalid or has expired" })).toBeVisible();
+    await page.goto("/auth/callback");
+    await expect(page).toHaveURL(/\/login\?error=confirmation/);
+  });
+
   test("the cron endpoint refuses callers without the secret", async ({ request }) => {
     expect((await request.get("/api/cron/sweep")).status()).toBe(401);
     expect((await request.get("/api/cron/sweep", { headers: { authorization: "Bearer wrong" } })).status()).toBe(401);
