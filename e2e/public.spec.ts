@@ -49,10 +49,17 @@ test.describe("public pages", () => {
   test("theme toggle switches light, dark and system and persists across reload", async ({ page }) => {
     await open(page, "/");
     const html = page.locator("html");
+    // On phones the theme control lives inside the menu; on wider screens it is in the header.
+    const reveal = async () => {
+      const menu = page.getByRole("button", { name: "Open menu" });
+      if (await menu.isVisible()) await menu.click();
+    };
+    await reveal();
     await page.getByRole("radio", { name: "Dark" }).click();
     await expect(html).toHaveAttribute("data-theme", "dark");
     await page.reload();
     await expect(html).toHaveAttribute("data-theme", "dark");
+    await reveal();
     await page.getByRole("radio", { name: "Light" }).click();
     await expect(html).toHaveAttribute("data-theme", "light");
     await page.getByRole("radio", { name: "System" }).click();
