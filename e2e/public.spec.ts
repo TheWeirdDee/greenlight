@@ -110,6 +110,21 @@ test.describe("public pages", () => {
     await expect(page).toHaveURL(/\/login\?error=confirmation/);
   });
 
+  test("wrong credentials: one generic message (no account enumeration), the email stays typed, no crash", async ({ page }) => {
+    await open(page, "/login");
+    for (const email of [`nobody.${Date.now()}@example.invalid`, "someone.else@example.invalid"]) {
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password").fill("definitely-not-the-password");
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(page.getByRole("alert").filter({ hasText: "That email and password don't match." })).toBeVisible();
+      await expect(page.getByLabel("Email")).toHaveValue(email);
+      await expect(page).toHaveURL(/\/login/);
+    }
+    // client-side validation and the server's own validation both refuse a short password on sign-up
+    await page.getByRole("button", { name: "Create an account" }).click();
+    await expect(page.getByLabel("Password")).toHaveAttribute("minlength", "8");
+  });
+
   test("the cron endpoint refuses callers without the secret", async ({ request }) => {
     expect((await request.get("/api/cron/sweep")).status()).toBe(401);
     expect((await request.get("/api/cron/sweep", { headers: { authorization: "Bearer wrong" } })).status()).toBe(401);
