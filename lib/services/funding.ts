@@ -1,5 +1,6 @@
 import type { Queryable } from "@/lib/db/types";
 import { conflict, invalid, notFound } from "@/lib/errors";
+import { assertWithinRate } from "@/lib/rate-limit";
 import { txHashInput } from "@/lib/validation";
 import { requireLaunchOwner, requireLaunchParticipant } from "./access";
 import type { Actor, Ctx, FundingVerification } from "./context";
@@ -48,6 +49,8 @@ export async function submitFundingTx(
 
   const req = await loadFundingRequirement(ctx.db, requirementId);
   await requireLaunchParticipant(ctx.db, actor.id, req.launch_id);
+  // Each attempt costs an RPC round-trip: throttle per person (after authorization, before the chain call).
+  assertWithinRate(`funding:${actor.id}`, 12, 60_000, ctx.now());
 
   const existing = await ctx.db.query(`select 1 from funding_transactions where chain_id = $1 and tx_hash = $2`, [
     req.funding_chain_id,
