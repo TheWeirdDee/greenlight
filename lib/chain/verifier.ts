@@ -1,14 +1,18 @@
-import { createPublicClient, erc20Abi, http, isAddressEqual, parseEventLogs, type PublicClient } from "viem";
+import { createPublicClient, erc20Abi, http, isAddressEqual, parseEventLogs, type Log } from "viem";
 import { baseSepolia } from "viem/chains";
 import { AppError } from "@/lib/errors";
 import { TxNotFoundError } from "@/lib/services/context";
 import type { ChainVerifier, FundingVerification } from "@/lib/services/context";
 import { BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_DEFAULT_RPC, FUNDING_TOKEN_ALLOWLIST } from "./config";
 
-export type ChainReader = Pick<
-  PublicClient,
-  "getChainId" | "getTransactionReceipt" | "getBlockNumber" | "getBlock" | "readContract"
->;
+/** The slice of a viem public client the verifier relies on (and tests fake). */
+export interface ChainReader {
+  getChainId(): Promise<number>;
+  getTransactionReceipt(args: { hash: `0x${string}` }): Promise<{ status: "success" | "reverted"; logs: Log[]; blockNumber: bigint }>;
+  getBlockNumber(): Promise<bigint>;
+  getBlock(args: { blockNumber: bigint }): Promise<{ timestamp: bigint }>;
+  readContract(args: { address: `0x${string}`; abi: typeof erc20Abi; functionName: "decimals" | "symbol" }): Promise<unknown>;
+}
 
 const rejected = (reason: string, partial: Partial<FundingVerification> = {}): FundingVerification => ({
   status: "rejected",
@@ -24,7 +28,7 @@ const rejected = (reason: string, partial: Partial<FundingVerification> = {}): F
 });
 
 export function createBaseSepoliaClient(rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || BASE_SEPOLIA_DEFAULT_RPC): ChainReader {
-  return createPublicClient({ chain: baseSepolia, transport: http(rpcUrl, { timeout: 10_000, retryCount: 2 }) });
+  return createPublicClient({ chain: baseSepolia, transport: http(rpcUrl, { timeout: 10_000, retryCount: 2 }) }) as unknown as ChainReader;
 }
 
 /**
