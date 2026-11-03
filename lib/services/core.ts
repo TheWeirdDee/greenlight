@@ -33,7 +33,7 @@ export async function appendEvent(q: Queryable, launchId: string, at: Date, e: N
       e.actor.id,
       e.actor.label,
       e.requirementId ?? null,
-      JSON.stringify(e.payload ?? {}),
+      e.payload ?? {},
       e.idempotencyKey ?? null,
       at,
     ],
@@ -141,7 +141,7 @@ export async function recompute(q: Queryable, launchId: string, now: Date, cause
   await q.query(
     `update launches set readiness_state = $2, readiness_result = $3::jsonb, readiness_computed_at = $4,
             rev = rev + 1, updated_at = $4 where id = $1`,
-    [launchId, readiness.state, JSON.stringify(readiness), now],
+    [launchId, readiness.state, readiness, now],
   );
 
   const before = prev[0];
