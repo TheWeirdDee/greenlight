@@ -158,52 +158,49 @@ only once per database (that guard is a feature the e2e asserts).
 
 ## Deployment
 
-1. Push to GitHub and import into Vercel (or `vercel deploy`).
-2. Set the environment variables above for *Production*.
-3. Apply the migration to the Supabase database (`npm run db:migrate`).
-4. `vercel.json` registers a daily Cron (`/api/cron/sweep`, Hobby-plan limit) that records expirations and
-   promotes pending funding even when nobody has a room open. Rooms also sweep themselves on every view.
+1. `vercel link` (or import the repo in Vercel). Pushes to `main` then deploy to production.
+2. Set **Production** variables — only these, never the admin string: `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL` (the `greenlight_app` login, transaction pooler),
+   `CRON_SECRET`, `DATABASE_POOL_MAX=1`. `MIGRATION_DATABASE_URL` and `GREENLIGHT_DB_PASSWORD` stay on your machine.
+   `NEXT_PUBLIC_*` values are inlined at build time, so set them before the build.
+3. Apply the schema once from your machine: `npm run db:audit`, `npm run db:migrate -- --dry-run`, `npm run db:migrate`, `npm run db:verify`.
+4. In Supabase add `https://<your-domain>/auth/callback` to **Authentication → URL Configuration → Redirect URLs** (additive).
+5. `vercel.json` registers a daily Cron (`/api/cron/sweep`, Hobby-plan limit) that records expirations and promotes
+   pending funding even when nobody has a room open. Rooms also sweep themselves on every view.
+6. Smoke-check: `curl -I <url>` shows the security headers; `/app` redirects anonymous users; the cron endpoint returns
+   401 without the secret and `{"swept":…}` with it (which proves the deployed app can reach the database).
 
-## Verification evidence (measured, 2026-11-03)
+## Live deployment
 
-Everything below was run on this code; numbers are copied from the runners' own output.
+**<https://greenlight-gold-eight.vercel.app>** — Vercel, connected to this repository (`main` deploys to production).
+It runs against a real Supabase project, in its own `greenlight` schema and least-privilege `greenlight_app` role.
 
-| Check | Result |
-| --- | --- |
-| `tsc --noEmit` (strict), `eslint` | clean |
-| Unit + integration (`vitest run`) | **136 passed, 0 failed, 7 skipped** (the 7 are the opt-in live-chain tests) |
-| ↳ readiness engine | 39: dependencies, missing/expired confirmations, exact-deadline boundary, evidence tiers, funding accumulation, transitions, bigint amounts |
-| ↳ workflow/integration (real PostgreSQL, production adapter) | 55: vertical slice, authorization, duplicate events, concurrent updates, funding, recovery/replacement, brief and decision |
-| ↳ Row Level Security | 5: read scoping, revoked access, no browser write path |
-| ↳ on-chain verifier (viem, fake RPC) | 12: wrong recipient/token/network, revert, confirmations, batching |
-| ↳ SSRF guard | 25 |
-| Live chain (`npm run test:live`, real Base Sepolia RPC) | **7 passed** |
-| Browser (Playwright, one run) | **27 passed, 0 failed**: desktop has 8 axe WCAG A/AA scans (light and dark), 9 public-page tests and 1 full workflow; mobile (Pixel 5) has 9 public-page tests |
-| Mutation spot-checks | removing the assignment-ownership check, and re-introducing jsonb double-encoding, each made the relevant tests fail |
+## Verification evidence
 
-**The full workflow test** drives four independent browser sessions (Founder, Ada, Grace, and Mallory as an outsider) through:
-sign-up → workspace → launch → four requirements → private invitations → Ada accepts and confirms (the founder's room
-recalculates on its own) → funding verified against the real chain → server-side site check → a deadline expiring on
-its own → EXPIRED/blocked with a proposed recovery → backup activated → Grace confirms → **READY TO LAUNCH** →
-authorization checks (outsider and contributor get 404 on founder pages) → founder decision → brief with
-verified-versus-submitted labels → public share link → revocation (404) → no horizontal overflow at 320 px and 390 px
-on the room, brief, dashboard and portal.
+The full, class-by-class report — what was inspected, what ran locally on a **stand-in** for Supabase Auth, what ran
+against the **real** Supabase project, what ran against the **live chain**, what ran against **production** — is in
+[`docs/verification-report.md`](docs/verification-report.md). Summary of what is and isn't proven:
 
-**Blockchain proof.** The funding step is verified against a *real, pre-existing* USDC transfer on Base Sepolia. It was
-not created by Greenlight; it is used to show that independent verification works on genuine chain data:
-[0x1b93805d…df0c4](https://sepolia.basescan.org/tx/0x1b93805d4e4a68d01b7e0f4a67bf50bb6aa8727f8b2c378165defb872d7df0c4)
-(0.001 USDC, block 53791002, sender `0x3dc4…801d` → recipient `0xa849…79d9`). `decimals()` was read from the token
-contract (6), not assumed. **No Greenlight-originated transaction has been sent yet.** That needs a funded wallet.
+| Class | Proven | Not yet proven |
+| --- | --- | --- |
+| Local tests (stand-in Auth) | 163 unit/integration tests pass on real PostgreSQL (incl. 4,000-launch differential property test of the readiness engine); full browser workflow with four independent sessions | — |
+| Real Supabase | migration dry-run + apply on a shared project; **23/23** isolation/privilege checks; production reaches the database as `greenlight_app`; real Auth rejects bad credentials correctly | sign-up + email confirmation, signed-in journeys, real-user isolation (needs confirmed accounts) |
+| Base Sepolia | verifier proven against the real RPC (7 live tests); a pre-existing transfer verified from chain data | **a fresh transaction sent through Greenlight** (needs a wallet approval) |
+| Production browser | 28 tests pass on the live URL (a11y, mobile 320 px, security headers, redirects) + wrong-credential handling against real Auth | the authenticated journey and funding on production |
+| People | — | usability test; five-operator customer validation |
 
-**Failures found and fixed by this verification** (kept for honesty): event payloads written as double-encoded JSON
-strings by the production driver (caught only once tests ran on real PostgreSQL, not by the earlier simulated database);
-horizontal overflow on the landing header and on evidence rows in the populated room at 320 px; a hydration race that
-made early clicks no-ops; and two bugs in the specs themselves.
+**This is not yet a "production-verified" claim.** The remaining steps are listed at the end of the report.
 
-**Not verified yet**, because it needs the owner's accounts or other people: a real Supabase project (Auth email flow and
-Realtime push; the app falls back to 20 s polling and deadline timers when Realtime is unavailable, which is what ran
-locally); a Vercel production deployment; a wallet-originated transfer through the in-app Send button; usability
-testing with first-time users; feedback from five launch operators.
+### Commands
+
+```bash
+npm test                                   # unit + integration (embedded PostgreSQL)
+npm run test:live                          # verifier against the real Base Sepolia RPC
+npm run test:e2e                           # browser suite against a local stack (see Testing)
+npm run db:audit | db:migrate | db:verify  # real Supabase: audit, apply, verify isolation
+npm run test:e2e:real                      # signed-in journey on real Supabase/production (needs confirmed accounts)
+npm run verify:funding -- <launch-id>      # independently audit credited funding transactions
+```
 
 ## Limitations (honest notes)
 
