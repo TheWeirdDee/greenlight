@@ -79,8 +79,12 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   );
 }
 
-export function Card({ className = "", children, as: Tag = "section" }: { className?: string; children: ReactNode; as?: "section" | "div" | "article" }) {
-  return <Tag className={`rounded-2xl border border-line bg-surface ${className}`}>{children}</Tag>;
+export function Card({ className = "", children, as: Tag = "section", id }: { className?: string; children: ReactNode; as?: "section" | "div" | "article"; id?: string }) {
+  return (
+    <Tag id={id} className={`rounded-2xl border border-line bg-surface ${className}`}>
+      {children}
+    </Tag>
+  );
 }
 
 export function Eyebrow({ children }: { children: ReactNode }) {
